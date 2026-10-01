@@ -1,6 +1,0 @@
-query4: Oficina que ha vendido el mayor número de objetos
- codigo_oficina | productos_vendidos 
-----------------+--------------------
- 4              |              33887
-(1 row)
-
