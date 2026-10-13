@@ -1,0 +1,5 @@
+query5: Países que tienen al menos una oficina que no ha vendido nada durante el año 2003
+ country | numero_oficinas 
+---------+-----------------
+(0 rows)
+
