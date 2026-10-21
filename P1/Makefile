@@ -1,4 +1,4 @@
-# Version 1.0
+#  http://www.dpriver.com/pp/sqlformat.htm
 # Por lo general no se requiere modificar el fichero
 
 export PGDATABASE:=classicmodels
