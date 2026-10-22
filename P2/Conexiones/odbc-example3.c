@@ -39,6 +39,7 @@ int main(void) {
         char query[BufferLength + 28];
         /* snprintf is not defined if ansi flag is enabled */
         (void) snprintf(query, (size_t)(BufferLength + 27), "select y from a where x = %s;", x);
+        printf("%s\n", query);
 
         (void) SQLExecDirect(stmt, (SQLCHAR*) query, SQL_NTS);
 
@@ -49,7 +50,7 @@ int main(void) {
             printf("y = %s\n", y);
         }
 
-        ret2 = SQLCloseCursor(stmt);
+        ret2 = SQLCloseCursor(stmt); /*Limpio la variable*/
         if (!SQL_SUCCEEDED(ret2)) {
             odbc_extract_error("", stmt, SQL_HANDLE_STMT);
            return ret;
