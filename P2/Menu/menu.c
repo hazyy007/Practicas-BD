@@ -11,7 +11,9 @@ static void ShowProductsMenu(SQLHDBC dbc);
 static int ShowProductsSubMenus();
 static void StockQuery(SQLHDBC dbc);
 static void FindQuery(SQLHDBC dbc);
-static void ShowOrdersMenu();
+static void ShowOrdersMenu(SQLHDBC dbc);
+static int ShowOrdersSubMenu();
+static void OpenQuery(SQLHDBC dbc);
 static void ShowCustomersMenu();
 
 int main(void) {
@@ -32,7 +34,7 @@ int main(void) {
                 ShowProductsMenu(dbc);
                 break;
             case 2:
-                ShowOrdersMenu();
+                ShowOrdersMenu(dbc);
                 break;
             case 3:
                 ShowCustomersMenu();
@@ -194,8 +196,78 @@ static void FindQuery(SQLHDBC dbc)
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
 
-static void ShowOrdersMenu() {
-    printf("--- Submenú Orders (En construcción) ---\n\n");
+static void ShowOrdersMenu(SQLHDBC dbc) {
+     int nChoice = 0;
+    do{
+        nChoice = ShowOrdersSubMenu();
+        switch (nChoice)
+        {
+        case 1:
+            OpenQuery(dbc);
+            break;
+        case 2:
+            printf("Range, still in process");
+            break;
+        case 3:
+            printf("Detail, still in process");
+            break;
+        default:
+            break;
+        }
+    }while (nChoice != 4); 
+}
+
+int ShowOrdersSubMenu()
+{
+    int nSelect = 0;
+    char buf[16];
+    do
+    {
+        printf("Orders submenu\n");
+        printf(" (1) Open\n"
+               " (2) Range\n"
+               " (3) Detail\n"
+               " (4) Back\n"
+               "Enter a number that corresponds to your choice > ");
+        if (!fgets(buf, 16, stdin)) nSelect = 0;
+        else nSelect = atoi(buf);
+        printf("\n");
+        if (nSelect < 1 || nSelect > 3)
+        {
+            printf("Ypur choice is out of range. Please try agin\n\n\n");
+        }
+
+    } while ((nSelect < 1) || (nSelect > 4));
+    return nSelect;
+}
+
+static void OpenQuery(SQLHDBC dbc)
+{
+    /*Codigo SQL:
+    SELECT ordernumber FROM orders WHERE shippdate is NULL order by ordernumber*/
+    SQLHSTMT stmt = NULL;
+    SQLINTEGER ordernumber = 0;
+    int count = 0;
+    SQLRETURN ret;
+
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    SQLPrepare(stmt, (SQLCHAR*) "SELECT ordernumber FROM orders WHERE shippeddate IS NULL ORDER BY ordernumber", SQL_NTS);
+    SQLExecute(stmt);
+    /*Vinculamos*/
+    SQLBindCol(stmt, 1, SQL_C_SLONG, &ordernumber, 0, NULL);
+    /*Guardamos el resultado*/
+    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
+        printf("%d.\n\n", ordernumber);
+        count++;
+    } if (count == 0) {
+        printf("\n[ERROR] All orders have been shalled");
+    }
+
+    printf("\n-------------------------\n");
+
+    SQLCloseCursor(stmt);
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
 
 static void ShowCustomersMenu() {
