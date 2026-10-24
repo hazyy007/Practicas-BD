@@ -14,6 +14,8 @@ static void FindQuery(SQLHDBC dbc);
 static void ShowOrdersMenu(SQLHDBC dbc);
 static int ShowOrdersSubMenu();
 static void OpenQuery(SQLHDBC dbc);
+static void RangeQuery(SQLHDBC dbc);
+static void DetailQuery(SQLHDBC dbc);
 static void ShowCustomersMenu();
 
 int main(void) {
@@ -89,6 +91,7 @@ static void ShowProductsMenu(SQLHDBC dbc) {
             FindQuery(dbc);
             break;
         default:
+            printf("Bye Bye\n\n");
             break;
         }
     }while (nChoice != 3); 
@@ -110,7 +113,7 @@ int ShowProductsSubMenus()
         printf("\n");
         if (nSelect < 1 || nSelect > 3)
         {
-            printf("Ypur choice is out of range. Please try agin\n\n\n");
+            printf("Your choice is out of range. Please try agin\n\n\n");
         }
 
     } while ((nSelect < 1) || (nSelect > 3));
@@ -206,12 +209,13 @@ static void ShowOrdersMenu(SQLHDBC dbc) {
             OpenQuery(dbc);
             break;
         case 2:
-            printf("Range, still in process");
+            RangeQuery(dbc);
             break;
         case 3:
-            printf("Detail, still in process");
+            DetailQuery(dbc);
             break;
         default:
+            printf("Bye Bye\n\n");
             break;
         }
     }while (nChoice != 4); 
@@ -234,7 +238,7 @@ int ShowOrdersSubMenu()
         printf("\n");
         if (nSelect < 1 || nSelect > 3)
         {
-            printf("Ypur choice is out of range. Please try agin\n\n\n");
+            printf("Your choice is out of range. Please try agin\n\n\n");
         }
 
     } while ((nSelect < 1) || (nSelect > 4));
@@ -268,6 +272,87 @@ static void OpenQuery(SQLHDBC dbc)
 
     SQLCloseCursor(stmt);
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+
+static void RangeQuery(SQLHDBC dbc)
+{
+    SQLHSTMT stmt = NULL;
+    SQLINTEGER ordernumber;
+    char orderdate[15] = "\0";
+    char shippeddate[15] = "\0";
+    SQLLEN shippeddate_ind = 0;
+    char input[50];
+    char first_date[11] = "\0";
+    char second_date[11] = "\0";
+    SQLRETURN ret;
+    int count = 0;
+
+/*input doble de las fechas*/
+    printf("Enter the range of the dates (YYYY-MM-DD - YYYY-MM-DD): ");
+
+    /*Guardamos toda la linea a la vez*/
+    if (fgets(input, sizeof(input), stdin) != NULL)
+    {
+        /*Ahora separamos las fechas*/
+        if (sscanf(input, "%10s - %10s", first_date, second_date) == 2)
+        {
+            printf("Buscando pedidos entre %10s y %10s", first_date, second_date);
+            SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+            /*Ponemos el cpdigo SQL*/
+            SQLPrepare(stmt, (SQLCHAR*) "SELECT ordernumber, orderdate, shippeddate FROM orders WHERE orderdate BETWEEN ? AND ? ORDER BY ordernumber", SQL_NTS);
+            
+            SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 0, 0, first_date, sizeof(first_date), NULL);
+            SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 0, 0, second_date, sizeof(second_date), NULL);
+            SQLExecute(stmt);
+
+            /* Vinculamos las dos columnas que devuelve el SELECT */
+            SQLBindCol(stmt, 1, SQL_C_LONG, &ordernumber, 0, NULL);
+            SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*)orderdate, sizeof(orderdate), NULL);
+            SQLBindCol(stmt, 3, SQL_C_CHAR, (SQLCHAR*)shippeddate, sizeof(shippeddate), &shippeddate_ind);
+
+            printf("\n--- Results in range '%10s' and '%10s' ---\n", first_date, second_date);
+
+            
+            /* Bucle para imprimir todas las filas devueltas por la consulta */
+            while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
+                if (shippeddate_ind == SQL_NULL_DATA){
+                    printf("%d\t%s\n", ordernumber, orderdate);
+                }
+                else{
+                    printf("%d\t%s\t%s\n", ordernumber, orderdate, shippeddate);
+                }
+                count++;
+            }
+            
+            if (count == 0) {
+                printf("No orders found in that range.\n");
+            }
+            printf("------------------------\n\n");
+
+            SQLCloseCursor(stmt);
+            SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+        }
+    }
+    
+}
+
+static void DetailQuery(SQLHDBC dbc)
+{
+    /*codigo SQL:
+        SELECT 
+            o.orderdate, 
+            o.status, 
+            od.productcode, 
+            od.quantityordered, 
+            od.priceeach, 
+            (SELECT SUM(quantityordered * priceeach) FROM orderdetails WHERE ordernumber = o.ordernumber) AS Precio_total
+        FROM orders o
+        JOIN orderdetails od ON o.ordernumber = od.ordernumber
+        WHERE o.ordernumber = 10100
+        ORDER BY od.orderlinenumber;*/
+
+        printf("En proceso");
 }
 
 static void ShowCustomersMenu() {
