@@ -10,13 +10,16 @@ static int ShowMainMenu();
 static void ShowProductsMenu(SQLHDBC dbc);
 static int ShowProductsSubMenus();
 static void StockQuery(SQLHDBC dbc);
-static void FindQuery(SQLHDBC dbc);
+static void FindQueryproducts(SQLHDBC dbc);
 static void ShowOrdersMenu(SQLHDBC dbc);
 static int ShowOrdersSubMenu();
 static void OpenQuery(SQLHDBC dbc);
 static void RangeQuery(SQLHDBC dbc);
 static void DetailQuery(SQLHDBC dbc);
-static void ShowCustomersMenu();
+static void ShowCustomersMenu(SQLHDBC dbc);
+static int ShowcustomerssSubMenu();
+static void FindQueryCustomer(SQLHDBC dbc);
+static void ListProducts(SQLHDBC dbc);
 
 int main(void) {
     SQLHENV env = NULL;
@@ -39,7 +42,7 @@ int main(void) {
                 ShowOrdersMenu(dbc);
                 break;
             case 3:
-                ShowCustomersMenu();
+                ShowCustomersMenu(dbc);
                 break;
             case 4:
                 printf("Bye Bye\n\n");
@@ -88,7 +91,7 @@ static void ShowProductsMenu(SQLHDBC dbc) {
             StockQuery(dbc);
             break;
         case 2:
-            FindQuery(dbc);
+            FindQueryproducts(dbc);
             break;
         default:
             printf("Bye Bye\n\n");
@@ -151,7 +154,7 @@ static void StockQuery(SQLHDBC dbc)
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
 
-static void FindQuery(SQLHDBC dbc)
+static void FindQueryproducts(SQLHDBC dbc)
 {
     SQLHSTMT stmt = NULL;
     char search_input[100];
@@ -349,12 +352,192 @@ static void DetailQuery(SQLHDBC dbc)
             (SELECT SUM(quantityordered * priceeach) FROM orderdetails WHERE ordernumber = o.ordernumber) AS Precio_total
         FROM orders o
         JOIN orderdetails od ON o.ordernumber = od.ordernumber
-        WHERE o.ordernumber = 10100
+        WHERE o.ordernumber = ?
         ORDER BY od.orderlinenumber;*/
 
-        printf("En proceso");
+    SQLHSTMT stmt = NULL;
+    char input[50];
+    SQLINTEGER ordernumber_input = 0;
+
+    /* 1. Declaramos las variables*/
+    char orderdate[15] = "\0";
+    char status[20] = "\0";
+    char productcode[20] = "\0";
+    SQLINTEGER quantityordered = 0;
+    char priceeach[20] = "\0";
+    char precio_total[30] = "\0";
+    
+    SQLRETURN ret;
+    int count = 0;
+    int primera_fila = 1;
+
+    /* Pedimos el ordernumber al usuario */
+    printf("Enter order number: ");
+    if (fgets(input, sizeof(input), stdin) != NULL) {
+        ordernumber_input = atoi(input);
+    }
+
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    /* Preparamos la consulta */
+    SQLPrepare(stmt, (SQLCHAR*) 
+        "SELECT o.orderdate, o.status, od.productcode, od.quantityordered, od.priceeach, "
+        "(SELECT SUM(quantityordered * priceeach) FROM orderdetails WHERE ordernumber = o.ordernumber) AS precio_total "
+        "FROM orders o "
+        "JOIN orderdetails od ON o.ordernumber = od.ordernumber "
+        "WHERE o.ordernumber = ? "
+        "ORDER BY od.orderlinenumber", SQL_NTS);
+
+    /* Vinculamos el ordernumber_input al interrogante (?) */
+    SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &ordernumber_input, 0, NULL);
+
+    SQLExecute(stmt);
+
+    /* 2. Vinculamos las columnas en orden.*/
+    SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*)orderdate, sizeof(orderdate), NULL);
+    SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*)status, sizeof(status), NULL);
+    SQLBindCol(stmt, 3, SQL_C_CHAR, (SQLCHAR*)productcode, sizeof(productcode), NULL);
+    SQLBindCol(stmt, 4, SQL_C_SLONG, &quantityordered, 0, NULL);
+    SQLBindCol(stmt, 5, SQL_C_CHAR, (SQLCHAR*)priceeach, sizeof(priceeach), NULL);
+    SQLBindCol(stmt, 6, SQL_C_CHAR, (SQLCHAR*)precio_total, sizeof(precio_total), NULL);
+
+    printf("\n--- Detail for Order %d ---\n", ordernumber_input);
+
+    /* Bucle para imprimir todas las filas devueltas por la consulta */
+    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
+        
+        if (primera_fila == 1) {
+            printf("%s\t%s\n", orderdate, status);
+            printf("%s\n", precio_total);
+            primera_fila = 0; 
+        }
+        
+        printf("\t%s\t%d\t%s\n", productcode, quantityordered, priceeach);
+        count++;
+    }
+
+    if (count == 0) {
+        printf("Order number %d not found.\n", ordernumber_input);
+    }
+    printf("---------------------------\n\n");
+
+    SQLCloseCursor(stmt);
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+
 }
 
-static void ShowCustomersMenu() {
-    printf("--- Submenú Customers (En construcción) ---\n\n");
+static void ShowCustomersMenu(SQLHDBC dbc) {
+    int nChoice = 0;
+    do{
+        nChoice = ShowcustomerssSubMenu();
+        switch (nChoice)
+        {
+        case 1:
+            FindQueryCustomer(dbc);
+            break;
+        case 2:
+            ListProducts(dbc);
+            break;
+        case 3:
+            DetailQuery(dbc);
+            break;
+        default:
+            printf("Bye Bye\n\n");
+            break;
+        }
+    }while (nChoice != 4); 
 }
+
+int ShowcustomerssSubMenu()
+{
+    int nSelect = 0;
+    char buf[16];
+    do
+    {
+        printf("Orders submenu\n");
+        printf(" (1) Find\n"
+               " (2) List of priduct\n"
+               " (3) Balance\n"
+               " (4) Back\n"
+               "Enter a number that corresponds to your choice > ");
+        if (!fgets(buf, 16, stdin)) nSelect = 0;
+        else nSelect = atoi(buf);
+        printf("\n");
+        if (nSelect < 1 || nSelect > 3)
+        {
+            printf("Your choice is out of range. Please try agin\n\n\n");
+        }
+
+    } while ((nSelect < 1) || (nSelect > 4));
+    return nSelect;
+}
+
+static void FindQueryCustomer(SQLHDBC dbc)
+{
+    SQLHSTMT stmt = NULL;
+    char search_input[100];
+    char search_pattern[104]; /* Buffer para añadir los % al inicio y final */
+    char customername[50] = "\0";
+    char contactfirstname[100] = "\0";
+    char contactlastname[100] = "\0";
+    SQLINTEGER customernumber;
+    SQLRETURN ret;
+    int count = 0;
+
+    printf("Enter customer name you want to search: ");
+    if (fgets(search_input, sizeof(search_input), stdin) != NULL) {
+        search_input[strcspn(search_input, "\n")] = 0; /* Limpiar salto de línea */
+    }
+
+    /* Añadimos los comodines % para que LIKE busque subcadenas */
+    sprintf(search_pattern, "%%%s%%", search_input);
+
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    /* PREPARED STATEMENT OBLIGATORIO: Ordenado por productcode como pide la práctica */
+    SQLPrepare(stmt, (SQLCHAR*) "SELECT customername, contactfirstname, contactlastname, customernumber  FROM customers WHERE contactfirstname LIKE ? OR contactlastname LIKE ? ORDER BY customernumber;", SQL_NTS);
+    
+    SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 0, 0, search_pattern, sizeof(search_pattern), NULL);
+    SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 0, 0, search_pattern, sizeof(search_pattern), NULL);
+
+    SQLExecute(stmt);
+
+    /* Vinculamos las dos columnas que devuelve el SELECT */
+    SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*)customername, sizeof(customername), NULL);
+    SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*)contactfirstname, sizeof(contactfirstname), NULL);
+    SQLBindCol(stmt, 3, SQL_C_CHAR, (SQLCHAR*)contactlastname, sizeof(contactlastname), NULL);
+    SQLBindCol(stmt, 4, SQL_C_SLONG, &customernumber, 0, NULL);
+
+    printf("\n--- Results for '%s' ---\n", search_input);
+
+    
+    /* Bucle para imprimir todas las filas devueltas por la consulta */
+    while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
+        printf("%s\t%s\t%s\t%d\n", customername, contactfirstname, contactlastname, customernumber);
+        count++;
+    }
+    
+    if (count == 0) {
+        printf("No customer found containing '%s'.\n", search_input);
+    }
+    printf("------------------------\n\n");
+
+    SQLCloseCursor(stmt);
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+}
+
+static void ListProducts(SQLHDBC dbc)
+{
+    /*Consulta SQL:
+    select p.productname, sum(od.quantityordered) as total_unidades
+    from orders o 
+    join orderdetails od on o.ordernumber = od.ordernumber 
+    join products p on od.productcode = p.productcode 
+    where o.customernumber = ?
+    group by p.productcode, p.productname 
+    order by p.productcode;*/
+    printf("En proceso");
+}
+
+
+
