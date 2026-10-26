@@ -20,6 +20,7 @@ static void ShowCustomersMenu(SQLHDBC dbc);
 static int ShowcustomerssSubMenu();
 static void FindQueryCustomer(SQLHDBC dbc);
 static void ListProducts(SQLHDBC dbc);
+static void BalanceQuery(SQLHDBC dbc);
 
 int main(void) {
     SQLHENV env = NULL;
@@ -439,7 +440,7 @@ static void ShowCustomersMenu(SQLHDBC dbc) {
             ListProducts(dbc);
             break;
         case 3:
-            DetailQuery(dbc);
+            BalanceQuery(dbc);
             break;
         default:
             printf("Bye Bye\n\n");
@@ -536,7 +537,107 @@ static void ListProducts(SQLHDBC dbc)
     where o.customernumber = ?
     group by p.productcode, p.productname 
     order by p.productcode;*/
-    printf("En proceso");
+    SQLHSTMT stmt = NULL;
+    char input[15] = "\0";
+    SQLINTEGER customernumber;
+    char productname[50] = "\0";
+    char total_unidades[25] = "\0";
+    SQLRETURN ret;
+    int count = 0;
+
+    printf("Write the coustumer number--> ");
+    if(fgets(input, sizeof(input), stdin) != NULL)
+    {
+        customernumber = atoi(input);
+    }
+
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    /*Ponemos la consulta sql*/
+    SQLPrepare(stmt, (SQLCHAR*) 
+    "SELECT p.productname, SUM(od.quantityordered) AS total_unidades "
+    "FROM orders o "
+    "JOIN orderdetails od ON o.ordernumber = od.ordernumber "
+    "JOIN products p ON od.productcode = p.productcode "
+    "WHERE o.customernumber = ? "
+    "GROUP BY p.productcode, p.productname "
+    "ORDER BY p.productcode;", SQL_NTS);
+
+    SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &customernumber, 0, NULL);
+
+    SQLExecute(stmt);
+
+    SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*)productname, sizeof(productname), NULL);
+    SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*)total_unidades, sizeof(total_unidades), NULL);
+
+    printf("Result of %d\n", customernumber);
+
+    while(SQL_SUCCEEDED(ret = SQLFetch(stmt)))
+    {
+        printf("%s\t%s\n", productname, total_unidades);
+        count++;
+    }
+
+    if (count == 0)
+    {
+        printf("No orders found for customer %d:(\n", customernumber);
+    }
+
+    SQLCloseCursor(stmt);
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+
+}
+
+static void BalanceQuery(SQLHDBC dbc)
+{
+    /*Consulta SQL
+    SELECT (COALESCE((SELECT SUM(amount) FROM payments WHERE customernumber = c.customernumber), 0) - COALESCE((SELECT SUM(quantityordered * priceeach) FROM orders o JOIN orderdetails od ON o.ordernumber = od.ordernumber WHERE o.customernumber = c.customernumber), 0)) AS balance 
+    FROM customers c 
+    WHERE c.customernumber = ?;*/
+    SQLHSTMT stmt = NULL;
+    char input[50] = "\0";
+    SQLINTEGER customernumber;
+    char balance[20] = "\0";
+    SQLRETURN ret;
+    int count = 0;
+
+    printf("Write the coustumer number--> ");
+    if(fgets(input, sizeof(input), stdin) != NULL)
+    {
+        customernumber = atoi(input);
+    }
+
+    SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
+
+    /*Ponemos la consulta sql*/
+    SQLPrepare(stmt, (SQLCHAR*) 
+    "SELECT (COALESCE((SELECT SUM(amount) FROM payments WHERE customernumber = c.customernumber), 0) - COALESCE((SELECT SUM(quantityordered * priceeach) FROM orders o JOIN orderdetails od ON o.ordernumber = od.ordernumber WHERE o.customernumber = c.customernumber), 0)) AS balance "
+    "FROM customers c "
+    "WHERE c.customernumber = ?;", SQL_NTS);
+
+    SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &customernumber, 0, NULL);
+
+    SQLExecute(stmt);
+
+    /*ponemos las columnas en orden*/
+    SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*)balance, sizeof(balance), NULL);
+
+    printf("Result of %d\n", customernumber);
+
+    while(SQL_SUCCEEDED(ret = SQLFetch(stmt)))
+    {
+        printf("%s €\n", balance);
+        count++;
+    }
+
+    if (count == 0)
+    {
+        printf("No customer found:(\n");
+    }
+
+    SQLCloseCursor(stmt);
+    SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+
 }
 
 
