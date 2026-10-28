@@ -157,9 +157,11 @@ static void StockQuery(SQLHDBC dbc)
 
 static void FindQueryproducts(SQLHDBC dbc)
 {
+    /*Consulta SQL:
+    SELECT productcode, productname FROM products WHERE productname LIKE ? ORDER BY productcode*/
     SQLHSTMT stmt = NULL;
     char search_input[100];
-    char search_pattern[104]; /* Buffer para añadir los % al inicio y final */
+    char search_pattern[104];
     char productcode[50] = "\0";
     char productname[100] = "\0";
     SQLRETURN ret;
@@ -175,7 +177,7 @@ static void FindQueryproducts(SQLHDBC dbc)
 
     SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
 
-    /* PREPARED STATEMENT OBLIGATORIO: Ordenado por productcode como pide la práctica */
+    
     SQLPrepare(stmt, (SQLCHAR*) "SELECT productcode, productname FROM products WHERE productname LIKE ? ORDER BY productcode", SQL_NTS);
     
     SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 0, 0, search_pattern, sizeof(search_pattern), NULL);
@@ -280,6 +282,8 @@ static void OpenQuery(SQLHDBC dbc)
 
 static void RangeQuery(SQLHDBC dbc)
 {
+    /*Consulta SQL:
+    SELECT ordernumber, orderdate, shippeddate FROM orders WHERE orderdate BETWEEN ? AND ? ORDER BY ordernumber*/
     SQLHSTMT stmt = NULL;
     SQLINTEGER ordernumber;
     char orderdate[15] = "\0";
@@ -359,8 +363,6 @@ static void DetailQuery(SQLHDBC dbc)
     SQLHSTMT stmt = NULL;
     char input[50];
     SQLINTEGER ordernumber_input = 0;
-
-    /* 1. Declaramos las variables*/
     char orderdate[15] = "\0";
     char status[20] = "\0";
     char productcode[20] = "\0";
@@ -394,7 +396,7 @@ static void DetailQuery(SQLHDBC dbc)
 
     SQLExecute(stmt);
 
-    /* 2. Vinculamos las columnas en orden.*/
+    /*Vinculamos las columnas en orden.*/
     SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*)orderdate, sizeof(orderdate), NULL);
     SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*)status, sizeof(status), NULL);
     SQLBindCol(stmt, 3, SQL_C_CHAR, (SQLCHAR*)productcode, sizeof(productcode), NULL);
