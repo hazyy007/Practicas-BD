@@ -124,37 +124,38 @@ int ShowProductsSubMenus()
     return nSelect;
 }
 
-/*CONSULTA 1: STOCK*/
+/*CONSULTA 1: Stock*/
 static void StockQuery(SQLHDBC dbc)
 {
     SQLHSTMT stmt = NULL;
     char productcode[50];
     SQLINTEGER stock = 0;
 
-    printf("Enter productcode: ");
+    printf("Enter productcode > ");
     if (fgets(productcode, sizeof(productcode), stdin) != NULL)
     {
         productcode[strcspn(productcode, "\n")] = 0; /*Fuera el salto de linea */
     }
 
     SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
-
     SQLPrepare(stmt, (SQLCHAR*) "SELECT quantityinstock FROM products WHERE productcode = ?", SQL_NTS);
     SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 0, 0, productcode, sizeof(productcode), NULL);
     SQLExecute(stmt);
+
     /*Vinculamos*/
     SQLBindCol(stmt, 1, SQL_C_SLONG, &stock, 0, NULL);
+
     /*Guardamos el resultado*/
     if (SQL_SUCCEEDED(SQLFetch(stmt))) {
-        printf("\n[RESULT] Stock for %s: %d units.\n\n", productcode, stock);
+        printf("%d\n", stock);
     } else {
-        printf("\n[ERROR] Product code '%s' not found.\n\n", productcode);
+        printf("Product code '%s' not found.\n", productcode);
     }
 
     SQLCloseCursor(stmt);
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
-
+/*Consulta2: Find*/
 static void FindQueryproducts(SQLHDBC dbc)
 {
     /*Consulta SQL:
@@ -167,19 +168,16 @@ static void FindQueryproducts(SQLHDBC dbc)
     SQLRETURN ret;
     int count = 0;
 
-    printf("Enter product name to search: ");
+    printf("Enter productname > ");
     if (fgets(search_input, sizeof(search_input), stdin) != NULL) {
-        search_input[strcspn(search_input, "\n")] = 0; /* Limpiar salto de línea */
+        search_input[strcspn(search_input, "\n")] = 0; /* Limpiar salto de linea */
     }
 
-    /* Añadimos los comodines % para que LIKE busque subcadenas */
+    /* Anadimos los comodines % para que LIKE busque subcadenas */
     sprintf(search_pattern, "%%%s%%", search_input);
 
     SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
-
-    
     SQLPrepare(stmt, (SQLCHAR*) "SELECT productcode, productname FROM products WHERE productname LIKE ? ORDER BY productcode", SQL_NTS);
-    
     SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 0, 0, search_pattern, sizeof(search_pattern), NULL);
     SQLExecute(stmt);
 
@@ -187,19 +185,15 @@ static void FindQueryproducts(SQLHDBC dbc)
     SQLBindCol(stmt, 1, SQL_C_CHAR, (SQLCHAR*)productcode, sizeof(productcode), NULL);
     SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*)productname, sizeof(productname), NULL);
 
-    printf("\n--- Results for '%s' ---\n", search_input);
-
-    
     /* Bucle para imprimir todas las filas devueltas por la consulta */
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        printf("%s\t%s\n", productcode, productname);
+        printf("%s %s\n", productcode, productname);
         count++;
     }
-    
+
     if (count == 0) {
         printf("No products found containing '%s'.\n", search_input);
     }
-    printf("------------------------\n\n");
 
     SQLCloseCursor(stmt);
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
@@ -250,42 +244,44 @@ int ShowOrdersSubMenu()
     } while ((nSelect < 1) || (nSelect > 4));
     return nSelect;
 }
-
+/*Consulta3: Open*/
 static void OpenQuery(SQLHDBC dbc)
 {
     /*Codigo SQL:
-    SELECT ordernumber FROM orders WHERE shippdate is NULL order by ordernumber*/
+    SELECT ordernumber FROM orders WHERE shippeddate IS NULL ORDER BY ordernumber*/
     SQLHSTMT stmt = NULL;
     SQLINTEGER ordernumber = 0;
     int count = 0;
     SQLRETURN ret;
 
     SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
-
     SQLPrepare(stmt, (SQLCHAR*) "SELECT ordernumber FROM orders WHERE shippeddate IS NULL ORDER BY ordernumber", SQL_NTS);
     SQLExecute(stmt);
+
     /*Vinculamos*/
     SQLBindCol(stmt, 1, SQL_C_SLONG, &ordernumber, 0, NULL);
+
     /*Guardamos el resultado*/
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        printf("%d.\n\n", ordernumber);
+        printf("%d\n", ordernumber);
         count++;
-    } if (count == 0) {
-        printf("\n[ERROR] All orders have been shalled");
     }
 
-    printf("\n-------------------------\n");
+    if (count == 0) {
+        printf("All orders have been shipped.\n");
+    }
 
     SQLCloseCursor(stmt);
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 }
 
+/*Cosnsulta4: Range*/
 static void RangeQuery(SQLHDBC dbc)
 {
     /*Consulta SQL:
     SELECT ordernumber, orderdate, shippeddate FROM orders WHERE orderdate BETWEEN ? AND ? ORDER BY ordernumber*/
     SQLHSTMT stmt = NULL;
-    SQLINTEGER ordernumber;
+    SQLINTEGER ordernumber = 0;
     char orderdate[15] = "\0";
     char shippeddate[15] = "\0";
     SQLLEN shippeddate_ind = 0;
@@ -295,8 +291,8 @@ static void RangeQuery(SQLHDBC dbc)
     SQLRETURN ret;
     int count = 0;
 
-/*input doble de las fechas*/
-    printf("Enter the range of the dates (YYYY-MM-DD - YYYY-MM-DD): ");
+    /* El script orders_range.sh espera exactamente este prompt */
+    printf("Enter dates (YYYY-MM-DD - YYYY-MM-DD) > ");
 
     /*Guardamos toda la linea a la vez*/
     if (fgets(input, sizeof(input), stdin) != NULL)
@@ -304,62 +300,45 @@ static void RangeQuery(SQLHDBC dbc)
         /*Ahora separamos las fechas*/
         if (sscanf(input, "%10s - %10s", first_date, second_date) == 2)
         {
-            printf("Buscando pedidos entre %10s y %10s", first_date, second_date);
             SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
 
-            /*Ponemos el cpdigo SQL*/
+            /*Ponemos el codigo SQL*/
             SQLPrepare(stmt, (SQLCHAR*) "SELECT ordernumber, orderdate, shippeddate FROM orders WHERE orderdate BETWEEN ? AND ? ORDER BY ordernumber", SQL_NTS);
-            
+
             SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 0, 0, first_date, sizeof(first_date), NULL);
             SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_VARCHAR, 0, 0, second_date, sizeof(second_date), NULL);
+
             SQLExecute(stmt);
 
-            /* Vinculamos las dos columnas que devuelve el SELECT */
-            SQLBindCol(stmt, 1, SQL_C_LONG, &ordernumber, 0, NULL);
+            /* Vinculamos las columnas que devuelve el SELECT */
+            SQLBindCol(stmt, 1, SQL_C_SLONG, &ordernumber, 0, NULL);
             SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*)orderdate, sizeof(orderdate), NULL);
             SQLBindCol(stmt, 3, SQL_C_CHAR, (SQLCHAR*)shippeddate, sizeof(shippeddate), &shippeddate_ind);
 
-            printf("\n--- Results in range '%10s' and '%10s' ---\n", first_date, second_date);
-
-            
-            /* Bucle para imprimir todas las filas devueltas por la consulta */
+            /* Bucle para imprimir todas las filas separadas por espacios como pide el script */
             while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-                if (shippeddate_ind == SQL_NULL_DATA){
-                    printf("%d\t%s\n", ordernumber, orderdate);
-                }
-                else{
-                    printf("%d\t%s\t%s\n", ordernumber, orderdate, shippeddate);
+                if (shippeddate_ind == SQL_NULL_DATA) {
+                    printf("%d %s\n", ordernumber, orderdate);
+                } else {
+                    printf("%d %s %s\n", ordernumber, orderdate, shippeddate);
                 }
                 count++;
             }
-            
+
             if (count == 0) {
                 printf("No orders found in that range.\n");
             }
-            printf("------------------------\n\n");
 
             SQLCloseCursor(stmt);
             SQLFreeHandle(SQL_HANDLE_STMT, stmt);
         }
     }
-    
 }
+
+/*Consulta5: Detail*/
 
 static void DetailQuery(SQLHDBC dbc)
 {
-    /*codigo SQL:
-        SELECT 
-            o.orderdate, 
-            o.status, 
-            od.productcode, 
-            od.quantityordered, 
-            od.priceeach, 
-            (SELECT SUM(quantityordered * priceeach) FROM orderdetails WHERE ordernumber = o.ordernumber) AS Precio_total
-        FROM orders o
-        JOIN orderdetails od ON o.ordernumber = od.ordernumber
-        WHERE o.ordernumber = ?
-        ORDER BY od.orderlinenumber;*/
-
     SQLHSTMT stmt = NULL;
     char input[50];
     SQLINTEGER ordernumber_input = 0;
@@ -369,13 +348,13 @@ static void DetailQuery(SQLHDBC dbc)
     SQLINTEGER quantityordered = 0;
     char priceeach[20] = "\0";
     char precio_total[30] = "\0";
-    
+
     SQLRETURN ret;
     int count = 0;
     int primera_fila = 1;
 
-    /* Pedimos el ordernumber al usuario */
-    printf("Enter order number: ");
+    /* El script orders_detail.sh espera exactamente este prompt */
+    printf("Enter ordernumber > ");
     if (fgets(input, sizeof(input), stdin) != NULL) {
         ordernumber_input = atoi(input);
     }
@@ -383,7 +362,7 @@ static void DetailQuery(SQLHDBC dbc)
     SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
 
     /* Preparamos la consulta */
-    SQLPrepare(stmt, (SQLCHAR*) 
+    SQLPrepare(stmt, (SQLCHAR*)
         "SELECT o.orderdate, o.status, od.productcode, od.quantityordered, od.priceeach, "
         "(SELECT SUM(quantityordered * priceeach) FROM orderdetails WHERE ordernumber = o.ordernumber) AS precio_total "
         "FROM orders o "
@@ -404,29 +383,23 @@ static void DetailQuery(SQLHDBC dbc)
     SQLBindCol(stmt, 5, SQL_C_CHAR, (SQLCHAR*)priceeach, sizeof(priceeach), NULL);
     SQLBindCol(stmt, 6, SQL_C_CHAR, (SQLCHAR*)precio_total, sizeof(precio_total), NULL);
 
-    printf("\n--- Detail for Order %d ---\n", ordernumber_input);
-
-    /* Bucle para imprimir todas las filas devueltas por la consulta */
+    /* Bucle para imprimir todas las filas separadas por espacios */
     while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
-        
         if (primera_fila == 1) {
-            printf("%s\t%s\n", orderdate, status);
+            printf("%s %s\n", orderdate, status);
             printf("%s\n", precio_total);
-            primera_fila = 0; 
+            primera_fila = 0;
         }
-        
-        printf("\t%s\t%d\t%s\n", productcode, quantityordered, priceeach);
+        printf("%s %d %s\n", productcode, quantityordered, priceeach);
         count++;
     }
 
     if (count == 0) {
         printf("Order number %d not found.\n", ordernumber_input);
     }
-    printf("---------------------------\n\n");
 
     SQLCloseCursor(stmt);
     SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-
 }
 
 static void ShowCustomersMenu(SQLHDBC dbc) {
@@ -475,6 +448,7 @@ int ShowcustomerssSubMenu()
     return nSelect;
 }
 
+/*Consulta6: Find*/
 static void FindQueryCustomer(SQLHDBC dbc)
 {
     /*Consulta sql:
@@ -497,7 +471,7 @@ static void FindQueryCustomer(SQLHDBC dbc)
     char nav_input[10];
     int continue_loop = 1;
 
-    printf("Enter customer name you want to search: ");
+    printf("Enter customer name > ");
     if (fgets(search_input, sizeof(search_input), stdin) != NULL) {
         search_input[strcspn(search_input, "\n")] = 0;
     }
@@ -587,7 +561,7 @@ static void ListProducts(SQLHDBC dbc)
     char nav_input[10];
     int continue_loop = 1;
 
-    printf("Write the coustumer number--> ");
+    printf("Enter customer number > ");
     if(fgets(input, sizeof(input), stdin) != NULL)
     {
         customernumber = atoi(input);
