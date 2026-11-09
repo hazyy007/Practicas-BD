@@ -291,7 +291,6 @@ static void RangeQuery(SQLHDBC dbc)
     SQLRETURN ret;
     int count = 0;
 
-    /* El script orders_range.sh espera exactamente este prompt */
     printf("Enter dates (YYYY-MM-DD - YYYY-MM-DD) > ");
 
     /*Guardamos toda la linea a la vez*/
@@ -315,7 +314,6 @@ static void RangeQuery(SQLHDBC dbc)
             SQLBindCol(stmt, 2, SQL_C_CHAR, (SQLCHAR*)orderdate, sizeof(orderdate), NULL);
             SQLBindCol(stmt, 3, SQL_C_CHAR, (SQLCHAR*)shippeddate, sizeof(shippeddate), &shippeddate_ind);
 
-            /* Bucle para imprimir todas las filas separadas por espacios como pide el script */
             while (SQL_SUCCEEDED(ret = SQLFetch(stmt))) {
                 if (shippeddate_ind == SQL_NULL_DATA) {
                     printf("%d %s\n", ordernumber, orderdate);
@@ -353,7 +351,6 @@ static void DetailQuery(SQLHDBC dbc)
     int count = 0;
     int primera_fila = 1;
 
-    /* El script orders_detail.sh espera exactamente este prompt */
     printf("Enter ordernumber > ");
     if (fgets(input, sizeof(input), stdin) != NULL) {
         ordernumber_input = atoi(input);
@@ -465,8 +462,6 @@ static void FindQueryCustomer(SQLHDBC dbc)
     SQLINTEGER customernumber;
     
     int count = 0;
-    
-    /* Variables nuevas para la paginación */
     SQLINTEGER offset = 0; 
     char nav_input[10];
     int continue_loop = 1;
@@ -480,7 +475,6 @@ static void FindQueryCustomer(SQLHDBC dbc)
 
     SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
 
-    /* 1. Añadimos LIMIT 10 y OFFSET ? al final de la consulta */
     SQLPrepare(stmt, (SQLCHAR*) 
         "SELECT customername, contactfirstname, contactlastname, customernumber "
         "FROM customers WHERE contactfirstname LIKE ? OR contactlastname LIKE ? "
@@ -555,8 +549,6 @@ static void ListProducts(SQLHDBC dbc)
     char total_unidades[25] = "\0";
     SQLRETURN ret;
     int count = 0;
-
-    /* Variables nuevas para la paginación */
     SQLINTEGER offset = 0; 
     char nav_input[10];
     int continue_loop = 1;
@@ -569,7 +561,6 @@ static void ListProducts(SQLHDBC dbc)
 
     SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
 
-    /* Ponemos la consulta sql. Modificamos el final para añadir LIMIT 10 OFFSET ? */
     SQLPrepare(stmt, (SQLCHAR*) 
     "SELECT p.productname, SUM(od.quantityordered) AS total_unidades "
     "FROM orders o "
@@ -599,7 +590,6 @@ static void ListProducts(SQLHDBC dbc)
             count++;
         }
 
-        /* Solo mostramos el mensaje de error si no hay pedidos en la página 0 */
         if (count == 0 && offset == 0)
         {
             printf("No orders found for customer %d:(\n", customernumber);
