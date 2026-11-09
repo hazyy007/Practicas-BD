@@ -647,7 +647,7 @@ static void BalanceQuery(SQLHDBC dbc)
 
     SQLAllocHandle(SQL_HANDLE_STMT, dbc, &stmt);
 
-    /* Ponemos la consulta sql (sin punto y coma al final) */
+    /* Ponemos la consulta sql*/
     SQLPrepare(stmt, (SQLCHAR*) 
     "SELECT (COALESCE((SELECT SUM(amount) FROM payments WHERE customernumber = c.customernumber), 0) - "
     "COALESCE((SELECT SUM(quantityordered * priceeach) FROM orders o JOIN orderdetails od ON o.ordernumber = od.ordernumber WHERE o.customernumber = c.customernumber), 0)) AS balance "
